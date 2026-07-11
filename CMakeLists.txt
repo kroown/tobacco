@@ -103,4 +103,19 @@ if(BLUNT_BUILD_TESTS)
 
     add_executable(test_audio_pipeline tests/test_audio_pipeline.c)
     target_link_libraries(test_audio_pipeline PRIVATE blunt m)
+
+    add_executable(test_audio_diag tests/test_audio_diag.c)
+    target_link_libraries(test_audio_diag PRIVATE blunt m)
+
+    add_executable(test_nz_count tests/test_nz_count.c)
+    target_link_libraries(test_nz_count PRIVATE blunt m)
+
+    add_executable(test_bitstream_trace tests/test_bitstream_trace.c)
+    target_link_libraries(test_bitstream_trace PRIVATE blunt m)
+
+    add_executable(test_bs_dump tests/test_bs_dump.c)
+    target_link_libraries(test_bs_dump PRIVATE blunt m)
+
+    add_executable(test_ch1_trace tests/test_ch1_trace.c)
+    target_link_libraries(test_ch1_trace PRIVATE blunt m)
 endif()

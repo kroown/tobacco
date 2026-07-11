@@ -57,13 +57,14 @@ struct BluntDecoder {
 
 // frame decoding
 static int decode_macroblock_i(BitReader *br, int16_t *block,
-                               const int16_t *qtable) {
+                                const int16_t *qtable) {
     int idx = 0;
+    int hit_eob = 0;
     while (idx < 16) {
         uint32_t run_level = br_read(br, 8);
         int run  = (run_level >> 4) & 0xF;
         int level = run_level & 0xF;
-        if (level == 0 && run == 0) break;
+        if (level == 0 && run == 0) { hit_eob = 1; break; }
         if (level == 0xF) {
             int32_t raw = (int32_t)(int16_t)(uint16_t)br_read(br, 16);
             idx += run;
@@ -86,6 +87,8 @@ static int decode_macroblock_i(BitReader *br, int16_t *block,
             idx++;
         }
     }
+    if (!hit_eob && idx == 16)
+        br_read(br, 8);
     return 0;
 }
 

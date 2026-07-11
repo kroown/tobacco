@@ -145,7 +145,7 @@ static void encode_audio_runlevel(ABW *bw, const int32_t *zigzag) {
         int32_t level = zigzag[idx];
         int32_t abs_level = level < 0 ? -level : level;
         int sign = level < 0 ? 1 : 0;
-        if (abs_level <= 14) {
+        if (abs_level <= 13) {
             abw_write(bw, (run << 4) | (uint32_t)abs_level, 8);
             abw_write(bw, (uint32_t)sign, 1);
         } else if (abs_level <= 32767) {
@@ -224,11 +224,12 @@ static uint32_t abr_read(ABR *r, int nbits) {
 
 static int decode_audio_runlevel(ABR *br, int32_t *block) {
     int idx = 0;
+    int hit_eob = 0;
     while (idx < 16) {
         uint32_t rl = abr_read(br, 8);
         int run = (rl >> 4) & 0xF;
         int level = rl & 0xF;
-        if (level == 0 && run == 0) break;
+        if (level == 0 && run == 0) { hit_eob = 1; break; }
         if (level == 0xF) {
             int32_t raw = (int32_t)abr_read(br, 32);
             idx += run;
@@ -247,6 +248,8 @@ static int decode_audio_runlevel(ABR *br, int32_t *block) {
             idx++;
         }
     }
+    if (!hit_eob && idx == 16)
+        abr_read(br, 8);
     return 0;
 }
 

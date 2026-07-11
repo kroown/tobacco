@@ -3,3 +3,9 @@ build/
 *.o
 *.a
 *.exe
+
+# .NET
+desktop/Tobacco/bin/
+desktop/Tobacco/obj/
+desktop/Tobacco/*.user
+desktop/Tobacco/*.suo

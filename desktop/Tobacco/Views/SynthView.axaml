@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Tobacco.Views.SynthView">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16" Spacing="8">
+
+            <TextBlock Text="Synthesizer" FontSize="20" FontWeight="Bold" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Play C4" Click="OnPlayC4" Width="80" />
+                <Button Content="Play E4" Click="OnPlayE4" Width="80" />
+                <Button Content="Play G4" Click="OnPlayG4" Width="80" />
+                <Button Content="All Notes Off" Click="OnAllOff" Width="120" />
+                <Button Content="Export WAV" Click="OnExportWav" Width="120" />
+            </StackPanel>
+
+            <Border BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Oscillator" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Waveform:" VerticalAlignment="Center" />
+                        <ComboBox x:Name="WaveformCombo" Width="120" SelectionChanged="OnWaveformChanged">
+                            <ComboBoxItem Content="Sine" IsSelected="True" />
+                            <ComboBoxItem Content="Square" />
+                            <ComboBoxItem Content="Saw" />
+                            <ComboBoxItem Content="Triangle" />
+                            <ComboBoxItem Content="Noise" />
+                        </ComboBox>
+                        <TextBlock Text="Volume:" VerticalAlignment="Center" />
+                        <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="80" Width="150"
+                                ValueChanged="OnVolumeChanged" />
+                        <TextBlock x:Name="VolumeText" Text="80%" VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="ADSR Envelope" FontWeight="Bold" />
+                    <WrapPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Attack:" Width="60" />
+                            <Slider x:Name="AttackSlider" Minimum="0" Maximum="1000" Value="10" Width="120"
+                                    ValueChanged="OnAdsrChanged" />
+                            <TextBlock x:Name="AttackText" Text="10ms" Width="50" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Decay:" Width="60" />
+                            <Slider x:Name="DecaySlider" Minimum="0" Maximum="1000" Value="100" Width="120"
+                                    ValueChanged="OnAdsrChanged" />
+                            <TextBlock x:Name="DecayText" Text="100ms" Width="50" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Sustain:" Width="60" />
+                            <Slider x:Name="SustainSlider" Minimum="0" Maximum="100" Value="70" Width="120"
+                                    ValueChanged="OnAdsrChanged" />
+                            <TextBlock x:Name="SustainText" Text="70%" Width="40" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                            <TextBlock Text="Release:" Width="60" />
+                            <Slider x:Name="ReleaseSlider" Minimum="0" Maximum="2000" Value="200" Width="120"
+                                    ValueChanged="OnAdsrChanged" />
+                            <TextBlock x:Name="ReleaseText" Text="200ms" Width="50" />
+                        </StackPanel>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Filter" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <CheckBox x:Name="FilterEnabledCheck" Content="Enabled" IsChecked="False" />
+                        <ComboBox x:Name="FilterTypeCombo" Width="100">
+                            <ComboBoxItem Content="Lowpass" IsSelected="True" />
+                            <ComboBoxItem Content="Highpass" />
+                            <ComboBoxItem Content="Bandpass" />
+                            <ComboBoxItem Content="Notch" />
+                        </ComboBox>
+                        <TextBlock Text="Freq:" VerticalAlignment="Center" />
+                        <Slider x:Name="FilterFreqSlider" Minimum="20" Maximum="20000" Value="5000" Width="150"
+                                ValueChanged="OnFilterChanged" />
+                        <TextBlock x:Name="FilterFreqText" Text="5000 Hz" VerticalAlignment="Center" />
+                        <TextBlock Text="Res:" VerticalAlignment="Center" />
+                        <Slider x:Name="FilterResSlider" Minimum="10" Maximum="1000" Value="100" Width="100"
+                                ValueChanged="OnFilterChanged" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="LFO" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Rate:" VerticalAlignment="Center" />
+                        <Slider x:Name="LfoRateSlider" Minimum="0" Maximum="100" Value="50" Width="120"
+                                ValueChanged="OnLfoChanged" />
+                        <TextBlock x:Name="LfoRateText" Text="0.5 Hz" VerticalAlignment="Center" Width="60" />
+                        <TextBlock Text="Depth:" VerticalAlignment="Center" />
+                        <Slider x:Name="LfoDepthSlider" Minimum="0" Maximum="5000" Value="500" Width="120"
+                                ValueChanged="OnLfoChanged" />
+                        <TextBlock x:Name="LfoDepthText" Text="500" VerticalAlignment="Center" Width="60" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#333" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Effects" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <CheckBox x:Name="DelayCheck" Content="Delay" IsChecked="False" />
+                            <TextBlock Text="Time:" VerticalAlignment="Center" />
+                            <Slider x:Name="DelayTimeSlider" Minimum="10" Maximum="1000" Value="300" Width="100" />
+                            <TextBlock Text="Fb:" VerticalAlignment="Center" />
+                            <Slider x:Name="DelayFbSlider" Minimum="0" Maximum="90" Value="40" Width="80" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <CheckBox x:Name="ReverbCheck" Content="Reverb" IsChecked="False" />
+                            <TextBlock Text="Room:" VerticalAlignment="Center" />
+                            <Slider x:Name="ReverbRoomSlider" Minimum="0" Maximum="100" Value="50" Width="100" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <CheckBox x:Name="ChorusCheck" Content="Chorus" IsChecked="False" />
+                            <TextBlock Text="Rate:" VerticalAlignment="Center" />
+                            <Slider x:Name="ChorusRateSlider" MinWidth="100" Minimum="10" Maximum="500" Value="150" Width="100" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="SynthStatus" Text="Ready" Margin="0,8,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

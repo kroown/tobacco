@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Tobacco.Views.ConverterView">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Margin="16" ColumnDefinitions="Auto,*">
+
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="WAV ↔ BLUNT Converter"
+                   FontSize="20" FontWeight="Bold" Margin="0,0,0,16" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Mode:" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="ModeCombo" Width="200" HorizontalAlignment="Left">
+            <ComboBoxItem Content="WAV → .blunt" IsSelected="True" />
+            <ComboBoxItem Content=".blunt → WAV" />
+        </ComboBox>
+
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+            <Button Content="Open File..." Click="OnOpenFile" Width="120" />
+            <TextBlock x:Name="InputFileText" Text="No file selected" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+            <TextBlock Text="Quality:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <Slider x:Name="QualitySlider" Minimum="1" Maximum="100" Value="80" Width="200" />
+            <TextBlock x:Name="QualityText" Text="80" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Button Grid.Row="4" Grid.ColumnSpan="2" Content="Convert" Click="OnConvert"
+                Width="140" Height="36" HorizontalAlignment="Left" Margin="0,12,0,0" />
+
+        <ScrollViewer Grid.Row="5" Grid.ColumnSpan="2" VerticalScrollBarVisibility="Auto"
+                      Margin="0,12,0,0" MinHeight="200">
+            <TextBox x:Name="LogBox"
+                     IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                     MinHeight="200" />
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="6" Grid.ColumnSpan="2" x:Name="StatusText" Text="Ready"
+                   Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

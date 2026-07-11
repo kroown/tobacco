@@ -71,7 +71,6 @@ static void encode_block_runlevel(BitWriter *bw, const int16_t *zigzag_block) {
         run = 0;
         idx++;
     }
-    /* End of block */
     bw_write(bw, 0x00, 8);
 }
 
