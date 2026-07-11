@@ -6,9 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ============================================================
- * Bitstream reader
- * ============================================================ */
+// bitstream reader
 typedef struct {
     const uint8_t *data;
     size_t         len;
@@ -38,9 +36,7 @@ static uint32_t br_read(BitReader *br, int nbits) {
     return val;
 }
 
-/* ============================================================
- * Decoder internal state
- * ============================================================ */
+// decoder internal state
 struct BluntDecoder {
     BluntHeader  hdr;
     FILE        *fp;
@@ -59,9 +55,7 @@ struct BluntDecoder {
     int          audio_valid;
 };
 
-/* ============================================================
- * Frame decoding
- * ============================================================ */
+// frame decoding
 static int decode_macroblock_i(BitReader *br, int16_t *block,
                                const int16_t *qtable) {
     int idx = 0;
@@ -123,9 +117,7 @@ static void copy_block_to_plane(uint8_t *plane, int stride,
     }
 }
 
-/* ============================================================
- * Public API
- * ============================================================ */
+// public api
 BluntDecoder *blunt_decoder_create(void) {
     BluntDecoder *dec = (BluntDecoder *)calloc(1, sizeof(BluntDecoder));
     if (!dec) return NULL;

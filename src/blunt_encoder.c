@@ -7,9 +7,7 @@
 #include <string.h>
 #include <limits.h>
 
-/* ============================================================
- * Bitstream writer
- * ============================================================ */
+// bitstream writer
 typedef struct {
     uint8_t *data;
     size_t   capacity;
@@ -45,9 +43,7 @@ static size_t bw_flush(BitWriter *bw) {
     return bw->byte_pos;
 }
 
-/* ============================================================
- * Run-level encoding
- * ============================================================ */
+// run-level encoding
 static void encode_block_runlevel(BitWriter *bw, const int16_t *zigzag_block) {
     int idx = 0;
     int run = 0;
@@ -79,9 +75,7 @@ static void encode_block_runlevel(BitWriter *bw, const int16_t *zigzag_block) {
     bw_write(bw, 0x00, 8);
 }
 
-/* ============================================================
- * Motion estimation: full search, half-pel, SAD-based
- * ============================================================ */
+// motion estimation: full search, half-pel, sad-based
 static int compute_sad(const uint8_t *a, int as, const uint8_t *b, int bs,
                        int w, int h) {
     int sad = 0;
@@ -136,9 +130,7 @@ static void motion_estimate_16x16(const uint8_t *cur, int cs,
     *out_dy = best_dy;
 }
 
-/* ============================================================
- * Frame encoding
- * ============================================================ */
+// frame encoding
 static void encode_block_raw(BitWriter *bw, const int16_t *block,
                              const int16_t *qtable) {
     int16_t coeff[16], zigzag[16];
@@ -317,9 +309,7 @@ static int encode_frame_p(BitWriter *bw, const BluntFrame *cur,
     return 0;
 }
 
-/* ============================================================
- * Encoder state
- * ============================================================ */
+// encoder state
 struct BluntEncoder {
     BluntHeader  hdr;
     FILE        *fp;
@@ -503,9 +493,7 @@ int blunt_encoder_close(BluntEncoder *enc) {
     return 0;
 }
 
-/* ============================================================
- * Frame allocation and color conversion
- * ============================================================ */
+// frame allocation and color conversion
 int blunt_frame_alloc(BluntFrame *f, int mb_width, int mb_height) {
     int w = mb_width * BLUNT_MB_SIZE;
     int h = mb_height * BLUNT_MB_SIZE;

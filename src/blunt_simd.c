@@ -16,23 +16,8 @@ BluntSimdLevel blunt_simd_detect(void) {
 #endif
 }
 
-/* ============================================================
- * Walsh-Hadamard Transform (WHT) 4x4
- *
- * The WHT is its own inverse (up to a scale factor of 1/16).
- * Forward:  y = H * x * H^T       (H is the Hadamard matrix)
- * Inverse:  x = H * y * H^T / 16
- *
- * H = [1  1  1  1]
- *     [1 -1 -1  1]  (reordered for butterfly)
- *     [1 -1  1 -1]
- *     [1  1 -1 -1]
- *
- * Butterfly form:
- *   a = x0 + x1, b = x0 - x1
- *   c = x2 + x3, d = x2 - x3
- *   y0 = a + c,  y1 = a - c,  y2 = b - d,  y3 = b + d
- * ============================================================ */
+// wht 4x4 butterfly transform
+// forward: y = H * x * H^T, inverse: x = H * y * H^T / 16
 
 static void idct4x4_scalar(int16_t *b) {
     /* Inverse WHT on columns (process each column index i) */
@@ -167,9 +152,7 @@ static void ycbcr_to_rgb_sse2(const uint8_t *y, const uint8_t *cb,
 
 #endif
 
-/* ============================================================
- * Public SIMD dispatchers
- * ============================================================ */
+// public simd dispatchers
 void blunt_idct4x4_block(int16_t *block) {
     idct4x4_scalar(block);
 }
