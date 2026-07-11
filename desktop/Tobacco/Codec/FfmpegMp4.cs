@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -49,64 +50,94 @@ public static class FfmpegMp4
 
         int mbw = (info.Width + 15) / 16;
         int mbh = (info.Height + 15) / 16;
-        int frameSize = info.Width * info.Height * 3 / 2;
+        int paddedW = mbw * 16;
+        int paddedH = mbh * 16;
+        int rawFrameSize = info.Width * info.Height * 3 / 2;
+        int rawYSize = info.Width * info.Height;
+        int rawUvSize = (info.Width / 2) * (info.Height / 2);
 
-        var videoProcess = StartFfmpeg(
-            $"-i \"{mp4Path}\" -f rawvideo -pix_fmt yuv420p -vf \"scale={info.Width}:{info.Height}\" -",
-            redirectStd: true);
+        log?.Invoke("Starting ffmpeg decode...");
+        var videoProc = StartFfmpegRead(
+            $"-i \"{mp4Path}\" -f rawvideo -pix_fmt yuv420p -",
+            log);
 
-        Process? audioProcess = null;
+        int paddedFrameSize = paddedW * paddedH * 3 / 2;
+
+        Process? audioProc = null;
+        int audioBytesPerFrame = 0;
         if (hasAudio)
         {
-            audioProcess = StartFfmpeg(
+            audioBytesPerFrame = (info.AudioSampleRate / fpsNum) * info.AudioChannels * 2;
+            audioProc = StartFfmpegRead(
                 $"-i \"{mp4Path}\" -f s16le -acodec pcm_s16le -ar {info.AudioSampleRate} -ac {info.AudioChannels} -",
-                redirectStd: true);
+                log);
         }
 
         log?.Invoke("Encoding frames...");
         int frameCount = 0;
         int totalFrames = (int)(info.Duration * fpsNum);
 
-        while (!ct.IsCancellationRequested)
+        try
         {
-            byte[] yuvFrame = ReadExact(videoProcess.StandardOutput.BaseStream, frameSize);
-            if (yuvFrame == null) break;
-
-            var frame = new BluntFrame();
-            frame.Alloc(mbw, mbh);
-            Buffer.BlockCopy(yuvFrame, 0, frame.Y, 0, frame.Y.Length);
-            int ySize = frame.Y.Length;
-            int uvSize = frame.Cb.Length;
-            Buffer.BlockCopy(yuvFrame, ySize, frame.Cb, 0, uvSize);
-            Buffer.BlockCopy(yuvFrame, ySize + uvSize, frame.Cr, 0, uvSize);
-
-            bool isKey = frameCount == 0 || frameCount % (fpsNum * 3) == 0;
-            enc.WriteFrame(frame, isKey);
-
-            if (hasAudio && audioProcess != null)
+            while (!ct.IsCancellationRequested)
             {
-                int samplesPerFrame = info.AudioSampleRate / fpsNum;
-                int bytesPerFrame = samplesPerFrame * info.AudioChannels * 2;
-                byte[] audioRaw = ReadExact(audioProcess.StandardOutput.BaseStream, bytesPerFrame);
-                if (audioRaw != null)
-                {
-                    short[] audioSamples = new short[audioRaw.Length / 2];
-                    Buffer.BlockCopy(audioRaw, 0, audioSamples, 0, audioRaw.Length);
-                    enc.WriteAudioFrame(audioSamples, audioSamples.Length);
-                }
-            }
+                byte[]? yuvFrame = ReadExact(videoProc.StandardOutput.BaseStream, rawFrameSize);
+                if (yuvFrame == null) break;
 
-            frameCount++;
-            if (frameCount % 30 == 0)
-                log?.Invoke($"  Frame {frameCount}/{totalFrames}");
-            progress?.Invoke(totalFrames > 0 ? (double)frameCount / totalFrames : 0);
+                var frame = new BluntFrame();
+                frame.Alloc(mbw, mbh);
+
+                for (int row = 0; row < info.Height && row < paddedH; row++)
+                {
+                    int srcOff = row * info.Width;
+                    int dstOff = row * frame.YStride;
+                    int copyW = Math.Min(info.Width, paddedW);
+                    if (srcOff + copyW <= yuvFrame.Length)
+                        Buffer.BlockCopy(yuvFrame, srcOff, frame.Y, dstOff, copyW);
+                }
+                for (int row = 0; row < (info.Height + 1) / 2 && row < (paddedH + 1) / 2; row++)
+                {
+                    int srcCbOff = rawYSize + row * (info.Width / 2);
+                    int srcCrOff = rawYSize + rawUvSize + row * (info.Width / 2);
+                    int dstCbOff = row * frame.CbStride;
+                    int dstCrOff = row * frame.CrStride;
+                    int copyW = Math.Min(info.Width / 2, frame.CbStride);
+                    if (srcCbOff + copyW <= yuvFrame.Length)
+                        Buffer.BlockCopy(yuvFrame, srcCbOff, frame.Cb, dstCbOff, copyW);
+                    if (srcCrOff + copyW <= yuvFrame.Length)
+                        Buffer.BlockCopy(yuvFrame, srcCrOff, frame.Cr, dstCrOff, copyW);
+                }
+
+                bool isKey = frameCount == 0 || frameCount % (fpsNum * 3) == 0;
+                enc.WriteFrame(frame, isKey);
+
+                if (hasAudio && audioProc != null && audioBytesPerFrame > 0)
+                {
+                    byte[]? audioRaw = ReadExact(audioProc.StandardOutput.BaseStream, audioBytesPerFrame);
+                    if (audioRaw != null)
+                    {
+                        short[] audioSamples = new short[audioRaw.Length / 2];
+                        Buffer.BlockCopy(audioRaw, 0, audioSamples, 0, audioRaw.Length);
+                        enc.WriteAudioFrame(audioSamples, audioSamples.Length);
+                    }
+                }
+
+                frameCount++;
+                if (frameCount % 30 == 0)
+                    log?.Invoke($"  Frame {frameCount}/{totalFrames}");
+                progress?.Invoke(totalFrames > 0 ? (double)frameCount / totalFrames : 0);
+            }
+        }
+        catch (Exception ex)
+        {
+            log?.Invoke($"Encoding error: {ex.Message}");
         }
 
         enc.Close();
-        try { videoProcess.StandardOutput.BaseStream.Close(); videoProcess.Kill(); } catch { }
-        try { audioProcess?.StandardOutput.BaseStream.Close(); audioProcess?.Kill(); } catch { }
+        SafeKill(videoProc);
+        SafeKill(audioProc);
 
-        log?.Invoke($"Done! {frameCount} frames written to {Path.GetFileName(bluntPath)}");
+        log?.Invoke($"Done! {frameCount} frames -> {Path.GetFileName(bluntPath)}");
         progress?.Invoke(1.0);
     }
 
@@ -126,76 +157,112 @@ public static class FfmpegMp4
         if (hasAudio)
             log?.Invoke($"  Audio: {hdr.AudioSampleRate}Hz {hdr.AudioChannels}ch");
 
-        var videoProcess = StartFfmpeg(
+        int crf = Math.Max(18, 51 - quality);
+        log?.Invoke($"Starting ffmpeg encode (CRF {crf})...");
+        var videoProc = StartFfmpegWrite(
             $"-f rawvideo -pix_fmt yuv420p -s {hdr.Width}x{hdr.Height} -r {fps:F2} -i - " +
-            $"-c:v libx264 -crf {Math.Max(18, 51 - quality)} -preset medium -pix_fmt yuv420p " +
+            $"-c:v libx264 -crf {crf} -preset medium -pix_fmt yuv420p " +
             $"-movflags +faststart \"{mp4Path}\"",
-            redirectStd: true, stdin: true);
+            log);
 
-        Process? audioProcess = null;
+        Process? audioProc = null;
         string? tempAudioPath = null;
         if (hasAudio)
         {
             tempAudioPath = Path.Combine(Path.GetTempPath(), "tobacco_audio_" + Guid.NewGuid().ToString("N") + ".wav");
-            audioProcess = StartFfmpeg(
+            audioProc = StartFfmpegWrite(
                 $"-f s16le -ar {hdr.AudioSampleRate} -ac {hdr.AudioChannels} -i - " +
-                $"-c:a aac -b:a 128k -y \"{tempAudioPath}\"",
-                redirectStd: true, stdin: true);
+                $"-c:a aac -b:a 128k \"{tempAudioPath}\"",
+                log);
         }
 
-        log?.Invoke("Decoding and encoding frames...");
-        for (uint f = 0; f < hdr.NumFrames && !ct.IsCancellationRequested; f++)
+        log?.Invoke("Encoding frames...");
+        int ySize = hdr.Width * hdr.Height;
+        int uvSize = (hdr.Width / 2) * (hdr.Height / 2);
+        int yuvSize = ySize + uvSize * 2;
+
+        try
         {
-            var frame = dec.ReadFrame();
-            if (frame == null) break;
-
-            byte[] yuv = new byte[hdr.Width * hdr.Height * 3 / 2];
-            int ySize = hdr.Width * hdr.Height;
-            int uvSize = (hdr.Width / 2) * (hdr.Height / 2);
-            Buffer.BlockCopy(frame.Y, 0, yuv, 0, Math.Min(frame.Y.Length, ySize));
-            Buffer.BlockCopy(frame.Cb, 0, yuv, ySize, Math.Min(frame.Cb.Length, uvSize));
-            Buffer.BlockCopy(frame.Cr, 0, yuv, ySize + uvSize, Math.Min(frame.Cr.Length, uvSize));
-
-            videoProcess.StandardInput.BaseStream.Write(yuv, 0, yuv.Length);
-            videoProcess.StandardInput.BaseStream.Flush();
-
-            if (hasAudio && audioProcess != null)
+            for (uint f = 0; f < hdr.NumFrames && !ct.IsCancellationRequested; f++)
             {
-                int samplesPerFrame = hdr.AudioSampleRate / (int)fps;
-                short[] audio = dec.ReadAudioFrame(samplesPerFrame * hdr.AudioChannels);
-                if (audio.Length > 0)
-                {
-                    byte[] audioBytes = new byte[audio.Length * 2];
-                    Buffer.BlockCopy(audio, 0, audioBytes, 0, audioBytes.Length);
-                    audioProcess.StandardInput.BaseStream.Write(audioBytes, 0, audioBytes.Length);
-                    audioProcess.StandardInput.BaseStream.Flush();
-                }
-            }
+                var frame = dec.ReadFrame();
+                if (frame == null) break;
 
-            if (f % 30 == 0)
-                log?.Invoke($"  Frame {f + 1}/{hdr.NumFrames}");
-            progress?.Invoke((double)(f + 1) / hdr.NumFrames);
+                byte[] yuv = new byte[yuvSize];
+                Buffer.BlockCopy(frame.Y, 0, yuv, 0, Math.Min(frame.Y.Length, ySize));
+                Buffer.BlockCopy(frame.Cb, 0, yuv, ySize, Math.Min(frame.Cb.Length, uvSize));
+                Buffer.BlockCopy(frame.Cr, 0, yuv, ySize + uvSize, Math.Min(frame.Cr.Length, uvSize));
+
+                videoProc.StandardInput.BaseStream.Write(yuv, 0, yuv.Length);
+
+                if (hasAudio && audioProc != null)
+                {
+                    int samplesPerFrame = hdr.AudioSampleRate / (int)fps;
+                    short[] audio = dec.ReadAudioFrame(samplesPerFrame * hdr.AudioChannels);
+                    if (audio.Length > 0)
+                    {
+                        byte[] audioBytes = new byte[audio.Length * 2];
+                        Buffer.BlockCopy(audio, 0, audioBytes, 0, audioBytes.Length);
+                        audioProc.StandardInput.BaseStream.Write(audioBytes, 0, audioBytes.Length);
+                    }
+                }
+
+                if (f % 30 == 0)
+                    log?.Invoke($"  Frame {f + 1}/{hdr.NumFrames}");
+                progress?.Invoke((double)(f + 1) / hdr.NumFrames);
+            }
+        }
+        catch (Exception ex)
+        {
+            log?.Invoke($"Encoding error: {ex.Message}");
         }
 
-        try { videoProcess.StandardInput.Close(); videoProcess.WaitForExit(10000); } catch { }
-        try { audioProcess?.StandardInput.Close(); audioProcess?.WaitForExit(10000); } catch { }
+        try { videoProc.StandardInput.Close(); videoProc.WaitForExit(15000); } catch { }
+        string? videoErrors = ReadProcErrors(videoProc);
+        if (!string.IsNullOrEmpty(videoErrors))
+            log?.Invoke($"  ffmpeg video: {videoErrors.Trim()}");
+        SafeKill(videoProc);
 
-        if (hasAudio && tempAudioPath != null && File.Exists(tempAudioPath))
+        if (hasAudio && audioProc != null)
         {
-            log?.Invoke("Muxing audio...");
-            var muxProcess = StartFfmpeg(
-                $"-i \"{mp4Path}\" -i \"{tempAudioPath}\" -c:v copy -c:a aac -shortest -y \"{mp4Path}.mux.mp4\"",
-                redirectStd: false);
-            muxProcess.WaitForExit(30000);
-            if (muxProcess.ExitCode == 0)
+            try { audioProc.StandardInput.Close(); audioProc.WaitForExit(15000); } catch { }
+            string? audioErrors = ReadProcErrors(audioProc);
+            if (!string.IsNullOrEmpty(audioErrors))
+                log?.Invoke($"  ffmpeg audio: {audioErrors.Trim()}");
+            SafeKill(audioProc);
+        }
+
+        if (hasAudio && tempAudioPath != null && File.Exists(tempAudioPath) && File.Exists(mp4Path))
+        {
+            log?.Invoke("Muxing audio + video...");
+            var muxPsi = new ProcessStartInfo("ffmpeg",
+                $"-nostdin -y -i \"{mp4Path}\" -i \"{tempAudioPath}\" -c:v copy -c:a copy -shortest \"{mp4Path}.mux.mp4\"")
+            {
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            var muxProc = Process.Start(muxPsi)!;
+            string muxStderr = muxProc.StandardError.ReadToEnd();
+            muxProc.WaitForExit(60000);
+            int muxExitCode = muxProc.ExitCode;
+            SafeKill(muxProc);
+
+            if (muxExitCode == 0 && File.Exists(mp4Path + ".mux.mp4"))
             {
                 File.Delete(mp4Path);
                 File.Move(mp4Path + ".mux.mp4", mp4Path);
+                log?.Invoke("Mux OK");
+            }
+            else
+            {
+                log?.Invoke($"Mux failed (exit {muxExitCode}): {muxStderr.Substring(0, Math.Min(200, muxStderr.Length))}");
+                try { File.Delete(mp4Path + ".mux.mp4"); } catch { }
             }
             try { File.Delete(tempAudioPath); } catch { }
         }
 
-        log?.Invoke($"Done! Written to {Path.GetFileName(mp4Path)}");
+        log?.Invoke($"Done! -> {Path.GetFileName(mp4Path)}");
         progress?.Invoke(1.0);
     }
 
@@ -213,6 +280,7 @@ public static class FfmpegMp4
             $"-v quiet -print_format json -show_format -show_streams \"{path}\"")
         {
             RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -284,17 +352,59 @@ public static class FfmpegMp4
         return result;
     }
 
-    private static Process StartFfmpeg(string args, bool redirectStd = false, bool stdin = false)
+    private static Process StartFfmpegRead(string args, Action<string>? log)
     {
-        var psi = new ProcessStartInfo("ffmpeg", args + " -y")
+        var psi = new ProcessStartInfo("ffmpeg", $"-nostdin {args}")
         {
-            RedirectStandardInput = stdin,
-            RedirectStandardOutput = redirectStd && !stdin,
-            RedirectStandardError = !redirectStd,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        return Process.Start(psi)!;
+        var proc = Process.Start(psi)!;
+        var stderr = new StringBuilder();
+        proc.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
+        proc.BeginErrorReadLine();
+        return proc;
+    }
+
+    private static Process StartFfmpegWrite(string args, Action<string>? log, bool appendY = true)
+    {
+        string fullArgs = appendY ? args + " -y" : args;
+        var psi = new ProcessStartInfo("ffmpeg", fullArgs)
+        {
+            RedirectStandardInput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        var proc = Process.Start(psi)!;
+        var stderr = new StringBuilder();
+        proc.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
+        proc.BeginErrorReadLine();
+        return proc;
+    }
+
+    private static string? ReadProcErrors(Process proc)
+    {
+        try
+        {
+            var field = typeof(Process).GetField("_error output",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            return proc.StandardError.ReadToEnd();
+        }
+        catch { return null; }
+    }
+
+    private static void SafeKill(Process? proc)
+    {
+        if (proc == null) return;
+        try
+        {
+            if (!proc.HasExited) proc.Kill();
+            proc.Dispose();
+        }
+        catch { }
     }
 
     private static byte[]? ReadExact(Stream stream, int count)

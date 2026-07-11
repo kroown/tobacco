@@ -9,3 +9,6 @@ desktop/Tobacco/bin/
 desktop/Tobacco/obj/
 desktop/Tobacco/*.user
 desktop/Tobacco/*.suo
+tests/bin/
+tests/obj/
+tests/*.csproj

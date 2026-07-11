@@ -307,17 +307,16 @@ public class BluntEncoder : IDisposable
     {
         int bx = dx >> 1;
         int by = dy >> 1;
-        for (int y = 0; y < 16; y++)
+        for (int y = 0; y < 4; y++)
         {
-            for (int x = 0; x < 16; x++)
+            for (int x = 0; x < 4; x++)
             {
                 int cy = py + y;
                 int cx = px + x;
-                if (cy >= h || cx >= w) { block[y * 4 + (x % 4)] = 0; continue; }
+                if (cy >= h || cx >= w) { block[y * 4 + x] = 0; continue; }
                 int sy = Math.Clamp(cy + by, 0, h - 1);
                 int sx = Math.Clamp(cx + bx, 0, w - 1);
-                if (x < 4)
-                    block[y * 4 + x] = (short)(cur[cy * cs + cx] - refPlane[sy * rs + sx]);
+                block[y * 4 + x] = (short)(cur[cy * cs + cx] - refPlane[sy * rs + sx]);
             }
         }
     }
