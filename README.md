@@ -12,6 +12,8 @@ block-based video codec with a custom `.blunt` file format. walsh-hadamard trans
 - sse2-accelerated ycbcr/rgb color conversion and motion compensation
 - configurable quality (1-100) via quantizer scaling
 - multi-macroblock support for arbitrary resolutions (padded to 16x16)
+- **wht-transform-coded stereo audio** (48kHz, 16/32-bit, 4x4 block codec with adpcm prediction)
+- **cross-platform desktop app** (c# avalonia 12.1, .net 10) — player, converter, synthesizer
 
 ## usage
 
@@ -20,6 +22,15 @@ blunt_encode -i frames/ -o output.blunt -q 80 -w 320 -h 240 -f 30
 blunt_decode -i output.blunt -o frames/
 blunt_info output.blunt
 ```
+
+### desktop app
+
+```bash
+cd desktop/Tobacco
+dotnet run
+```
+
+three tabs: **Player** (open .blunt files, frame-by-frame playback), **Converter** (wav <-> .blunt with quality control), **Synth** (full synthesizer with oscillators, ADSR, filters, LFO, effects).
 
 ## build
 
@@ -30,7 +41,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-dependencies: cmake, a c11 compiler with sse2 support (gcc, msvc, clang).
+dependencies: cmake, a c11 compiler with sse2 support (gcc, msvc, clang). for the desktop app: .net 10+ sdk.
 
 ## options
 
@@ -83,6 +94,7 @@ include/
 src/
   blunt_encoder.c     bitstream writer, run-level encoding, motion estimation
   blunt_decoder.c     bitstream reader, run-level decoding, frame reconstruction
+  blunt_audio.c       audio frame codec (encode/decode blocks, adpcm prediction)
   blunt_tables.c      quantizer table initialization, canonical huffman builder
   blunt_simd.c        wht forward/inverse, sse2 color conversion, motion compensation
 tools/
@@ -91,6 +103,11 @@ tools/
   blunt_info.c        file inspector
 tests/
   test_roundtrip.c    encode/decode roundtrip validation (all frames > 20db)
+desktop/
+  Tobacco/            c# avalonia cross-platform desktop app
+    Codec/            blunt codec port (bitstream, wht, audio, video, wav)
+    Audio/            synthesizer engine (oscillators, adsr, filters, effects)
+    Views/            player, converter, synth ui
 ```
 
 ## test results
@@ -103,3 +120,10 @@ at quality=80, the codec achieves the following ycbcr psnr on standard test patt
 | moving bar | 61.57 db |
 | checkerboard | 99.99 db |
 | color bars | 99.99 db |
+
+audio codec (48khz stereo, quality=75):
+
+| channel | psnr |
+|---------|------|
+| ch0 | 84.8 db |
+| ch1 | 84.9 db |
