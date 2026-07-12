@@ -1,6 +1,7 @@
 # tobacco
 
-block-based video codec with a custom `.blunt` file format. walsh-hadamard transform, run-level entropy coding, motion estimation, and sse2 color conversion.
+Блочный видеокодек с собственным форматом файла .blunt. Использует преобразование Уолша-Адамара, энтропийное кодирование методом run-level, оценку движения и преобразование цветового пространства с использованием инструкций SSE2.
+
 
 ## features
 
